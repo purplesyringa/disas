@@ -31,11 +31,6 @@ shift
 
 BAR="$(yes | tr -d "\n" | head -c $(($(tput cols) - 8)) | sed s/y/─/g)"
 
-# For comments in pipelines
---() {
-	cat
-}
-
 objdump \
 	--disassemble \
 	--disassembler-color=color \
@@ -52,15 +47,7 @@ objdump \
 
 	need_newline_before_symbol=0
 
-	-- "Replace objdump's colors with our own" \
-	| sed -E "s/\x1b\[32m/$GREEN/g" \
-	| sed -E "s/\x1b\[33m/$ORANGE/g" \
-	| sed -E "s/\x1b\[34m/$BLUE/g" \
-	| sed -E "s/\x1b\[35m/$PURPLE/g" \
-	| -- "Add spaces after commas in instruction bodies" \
-	| sed -E "s/^(\s+[^#]+),([^ ])/\1, \2/g" \
-	| sed -E "s/^(\s+[^#]+),([^ ])/\1, \2/g" \
-	| while read -r line; do
+	while read -r line; do
 		if [[ "$line" =~ ^[0-9a-f]{16}\ \<(.*)\>:$ ]]; then
 			if [[ $need_newline_before_symbol -eq 1 ]]; then
 				echo "$GRAY       │"
@@ -80,6 +67,11 @@ objdump \
 			lines=()
 			counter=1
 			while read -r line && [[ -n "$line" ]]; do
+				line="${line//$ESC[32m/$GREEN}"
+				line="${line//$ESC[33m/$ORANGE}"
+				line="${line//$ESC[34m/$BLUE}"
+				line="${line//$ESC[35m/$PURPLE}"
+
 				lines+=("$line")
 				if [[ "$line" =~ ([0-9a-f]+)"$OFF <$GREEN$symbol_name$OFF$PURPLE+0x$OFF$PURPLE"[0-9a-f]+"$OFF>" ]]; then
 					target_address="${BASH_REMATCH[1]}"
@@ -158,6 +150,9 @@ objdump \
 				# for other instructions, because for some reason objdump spuriously fails to color
 				# (bad)
 				insn="${insn//(bad)/$RED(bad)$OFF}"
+
+				insn="${insn//,/, }"
+				insn="${insn//,  /, }"
 
 				printf "$GRAY%6s │ $BROWN%s%s%s\n" "$address" "$label" "$asm_code" "$insn"
 			done
