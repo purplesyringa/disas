@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+ESC=$'\x1b'
+GRAY="$ESC[38;5;238m"
+BROWN="$ESC[38;2;117;113;94m"
+RED="$ESC[38;2;249;38;114m"
+LIGHTGREEN="$ESC[38;2;166;226;46m"
+ORANGE="$ESC[38;2;237;145;17m"
+BLUE="$ESC[38;2;0;170;255m"
+PURPLE="$ESC[38;2;205;49;222m"
+GREEN="$ESC[38;2;49;181;49m"
+DARKGREEN="$ESC[38;2;29;69;40m"
+BOLD="$ESC[1m"
+OFF="$ESC[0m"
+
+BAR="$(yes | tr -d "\n" | head -c $(($(tput cols) - 8)) | sed s/y/─/g)"
+
+# For comments in pipelines
+--() {
+	cat
+}
+
+objdump \
+	--disassemble \
+	--disassembler-color=color \
+	--demangle \
+	-Mintel \
+	"$@" \
+| {
+	read -r line
+	read -r line
+	file_format="$(<<<"$line" sed "s/.*file format //")"
+	printf "$GRAY───────┬$BAR\n"
+	printf "$GRAY       │$OFF Disassembly: $BOLD%s$OFF $BROWN(%s)\n" "$1" "$file_format"
+
+	need_newline_before_symbol=0
+
+	-- "Replace objdump's colors with our own" \
+	| sed -E "s/\x1b\[32m/$GREEN/g" \
+	| sed -E "s/\x1b\[33m/$ORANGE/g" \
+	| sed -E "s/\x1b\[34m/$BLUE/g" \
+	| sed -E "s/\x1b\[35m/$PURPLE/g" \
+	| -- "Add spaces after commas in instruction bodies" \
+	| sed -E "s/^(\s+[^#]+),([^ ])/\1, \2/g" \
+	| sed -E "s/^(\s+[^#]+),([^ ])/\1, \2/g" \
+	| while read -r line; do
+		if [[ "$line" =~ ^[0-9a-f]{16}\ \<(.*)\>:$ ]]; then
+			if [[ $need_newline_before_symbol -eq 1 ]]; then
+				echo "$GRAY       │"
+			fi
+
+			symbol_name="${BASH_REMATCH[1]}"
+
+			if [[ "$symbol_name" =~ ^(.*)(@[A-Za-z0-9_.]+)(.*)$ ]]; then
+				symbol_name="${BASH_REMATCH[1]}$DARKGREEN${BASH_REMATCH[2]}$LIGHTGREEN${BASH_REMATCH[3]}"
+			fi
+			if [[ "$symbol_name" =~ ^(.*)([+-]"0x"[0-9a-f]+)$ ]]; then
+				symbol_name="${BASH_REMATCH[1]}$PURPLE${BASH_REMATCH[2]}"
+			fi
+			printf "$GRAY       │ $LIGHTGREEN%s$OFF\n" "$symbol_name"
+
+			declare -A labels
+			lines=()
+			counter=1
+			while read -r line && [[ -n "$line" ]]; do
+				lines+=("$line")
+				if [[ "$line" =~ ([0-9a-f]+)"$OFF <$GREEN$symbol_name$OFF$PURPLE+0x$OFF$PURPLE"[0-9a-f]+"$OFF>" ]]; then
+					target_address="${BASH_REMATCH[1]}"
+					if [[ ! -v "labels[$target_address]" ]]; then
+						labels["$target_address"]="$counter"
+						counter="$((counter+1))"
+					fi
+				fi
+			done
+			need_newline_before_symbol=1
+
+			for line in "${lines[@]}"; do
+				[[ "$line" =~ ^([0-9a-f]+):[[:space:]]+([0-9a-f]{2}(\ [0-9a-f]{2})*)([[:space:]]*.*)$ ]]
+				address="${BASH_REMATCH[1]}"
+				asm_code="${BASH_REMATCH[2]}"
+				insn="${BASH_REMATCH[4]}"
+
+				label="${labels[$address]}"
+				if [[ -n "$label" ]]; then
+					label="$label:  "
+					label="$RED${label:0:4}$BROWN"
+				else
+					label="    "
+				fi
+
+				if [[ "$insn" =~ ^(.*)"$PURPLE"([0-9a-f]+)"$OFF <$GREEN$symbol_name$OFF$PURPLE+0x$OFF$PURPLE"[0-9a-f]+"$OFF>"(.*)$ ]]; then
+					prefix="${BASH_REMATCH[1]}"
+					target_address="${BASH_REMATCH[2]}"
+					suffix="${BASH_REMATCH[3]}"
+					target_label="${labels[$target_address]}"
+					insn="$prefix$RED$target_label$OFF$suffix"
+				elif [[ "$insn" =~ ^(.*)"$PURPLE"[0-9a-f]+"$OFF <$GREEN"(.*)"$OFF>"(.*)$ ]]; then
+					prefix="${BASH_REMATCH[1]}"
+					target_symbol="${BASH_REMATCH[2]}"
+					suffix="${BASH_REMATCH[3]}"
+					insn="$prefix$GREEN$target_symbol$OFF$suffix"
+				elif [[ "$insn" =~ ^(.*)"[${BLUE}rip$OFF".*"]"(.*)"# "[^\<]**"<"(.*)">"$ ]]; then
+					prefix="${BASH_REMATCH[1]}"
+					suffix="${BASH_REMATCH[2]}"
+					target_symbol="${BASH_REMATCH[3]}"
+					if [[ "$target_symbol" =~ ^(.*)([+-]"0x"[0-9a-f]+)$ ]]; then
+						target_symbol="${BASH_REMATCH[1]}$PURPLE${BASH_REMATCH[2]}"
+					fi
+					insn="$prefix$BROWN[${ORANGE}rel$OFF $GREEN$target_symbol$BROWN]$suffix"
+				else
+					insn="${insn// [/ $BROWN[}"
+					insn="${insn//]/$BROWN]}"
+				fi
+
+				if [[ "$insn" =~ ^(.*)(@[A-Za-z0-9_.]+)(.*)$ ]]; then
+					insn="${BASH_REMATCH[1]}$DARKGREEN${BASH_REMATCH[2]}$GREEN${BASH_REMATCH[3]}"
+				fi
+
+				insn="${insn//ZMMWORD PTR /${ORANGE}zmmword$OFF }"
+				insn="${insn//YMMWORD PTR /${ORANGE}ymmword$OFF }"
+				insn="${insn//XMMWORD PTR /${ORANGE}xmmword$OFF }"
+				insn="${insn//MMWORD PTR /${ORANGE}mmword$OFF }"
+				insn="${insn//QWORD PTR /${ORANGE}qword$OFF }"
+				insn="${insn//DWORD PTR /${ORANGE}dword$OFF }"
+				insn="${insn//WORD PTR /${ORANGE}word$OFF }"
+				insn="${insn//BYTE PTR /${ORANGE}byte$OFF }"
+
+				printf "$GRAY%6s │ $BROWN%s%s%s\n" "$address" "$label" "$asm_code" "$insn"
+			done
+		elif [[ "$line" =~ ^"Disassembly of section "(.*):$ ]]; then
+			section="${BASH_REMATCH[1]}"
+			printf "$GRAY───────┼$BAR\n"
+			printf "$GRAY       │$OFF Section $RED%s\n" "$section"
+			printf "$GRAY───────┼$BAR"
+			need_newline_before_symbol=0
+		fi
+	done
+	# | -- "Move address of instruction to the ruler" \
+	# | sed -E "s/^\s+([ 0-9a-f]{6}):\s*(.{22})/$GRAY\1 │$OFF     $BROWN\2$OFF/g" \
+	# | sed -E "s/^\s+[ 0-9a-f]{6}:\s*(.*)/$GRAY       │$OFF     $BROWN\1$OFF/g" \
+	# | -- "Use section name as a block separator" \
+	# | sed -E "s/^Disassembly of section (.*):$/$GRAY───────┼$BAR\n$GRAY       │$OFF Section $RED\1\n$GRAY───────┼$BAR/g" \
+	# | -- "Highlight symbol names" \
+	# | sed -E "s/^[0-9a-f]{16} <(.*)>:$/$GRAY       │ $LIGHTGREEN\1$OFF/g" \
+	# | -- "Highlight comments" \
+	# | sed -E "s/#/$GRAY#/g" \
+	# | -- "Make the listing more consistent with nasm" \
+	# | sed -E "s/QWORD PTR /${ORANGE}qword$OFF /g" \
+	# | sed -E "s/DWORD PTR /${ORANGE}dword$OFF /g" \
+	# | sed -E "s/WORD PTR /${ORANGE}word$OFF /g" \
+	# | sed -E "s/BYTE PTR /${ORANGE}byte$OFF /g" \
+	# | -- "Handle empty lines" \
+	# | sed "/^$/d"
+
+	echo "$GRAY───────┴$BAR"
+} \
+| less -R
