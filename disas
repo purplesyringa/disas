@@ -145,6 +145,11 @@ objdump \
 				insn="${insn//TBYTE PTR /${ORANGE}tbyte$OFF }"
 				insn="${insn//BYTE PTR /${ORANGE}byte$OFF }"
 
+				# This has to be present even if we want to use the same color for (bad) as we use
+				# for other instructions, because for some reason objdump spuriously fails to color
+				# (bad)
+				insn="${insn//(bad)/$RED(bad)$OFF}"
+
 				printf "$GRAY%6s │ $BROWN%s%s%s\n" "$address" "$label" "$asm_code" "$insn"
 			done
 		elif [[ "$line" =~ ^"Disassembly of section "(.*):$ ]]; then
