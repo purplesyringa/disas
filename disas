@@ -68,7 +68,7 @@ objdump \
 
 			symbol_name="${BASH_REMATCH[1]}"
 
-			if [[ "$symbol_name" =~ ^(.*)(@[A-Za-z0-9_.]+)(.*)$ ]]; then
+			if [[ "$symbol_name" =~ ^(.*[^@])(@[A-Za-z0-9_.@]+)(.*)$ ]]; then
 				symbol_name="${BASH_REMATCH[1]}$DARKGREEN${BASH_REMATCH[2]}$LIGHTGREEN${BASH_REMATCH[3]}"
 			fi
 			if [[ "$symbol_name" =~ ^(.*)([+-]"0x"[0-9a-f]+)$ ]]; then
@@ -129,7 +129,7 @@ objdump \
 					insn="${insn//]/$BROWN]}"
 				fi
 
-				if [[ "$insn" =~ ^(.*)(@[A-Za-z0-9_.]+)(.*)$ ]]; then
+				if [[ "$insn" =~ ^(.*[^@])(@[A-Za-z0-9_.@]+)(.*)$ ]]; then
 					insn="${BASH_REMATCH[1]}$DARKGREEN${BASH_REMATCH[2]}$GREEN${BASH_REMATCH[3]}"
 				fi
 
