@@ -12,6 +12,23 @@ DARKGREEN="$ESC[38;2;29;69;40m"
 BOLD="$ESC[1m"
 OFF="$ESC[0m"
 
+
+path="$1"
+if [[ ! -e "$path" ]]; then
+	path="$(which "$1")"
+	if [[ -z "$path" ]]; then
+		line="$(ldconfig -p | grep -P "^\t$1(\.\d+)* \(" | head -1)"
+		if [[ "$line" =~ ^.*" => "(.*)$ ]]; then
+			path="${BASH_REMATCH[1]}"
+		else
+			echo "disas: $1: not found"
+			exit 1
+		fi
+	fi
+fi
+shift
+
+
 BAR="$(yes | tr -d "\n" | head -c $(($(tput cols) - 8)) | sed s/y/─/g)"
 
 # For comments in pipelines
@@ -24,13 +41,14 @@ objdump \
 	--disassembler-color=color \
 	--demangle \
 	-Mintel \
+	"$path" \
 	"$@" \
 | {
 	read -r line
 	read -r line
 	file_format="$(<<<"$line" sed "s/.*file format //")"
 	printf "$GRAY───────┬$BAR\n"
-	printf "$GRAY       │$OFF Disassembly: $BOLD%s$OFF $BROWN(%s)\n" "$1" "$file_format"
+	printf "$GRAY       │$OFF Disassembly: $BOLD%s$OFF $BROWN(%s)\n" "$path" "$file_format"
 
 	need_newline_before_symbol=0
 
