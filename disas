@@ -126,6 +126,7 @@ objdump \
 					insn="$prefix$BROWN[${ORANGE}rel$OFF $GREEN$target_symbol$BROWN]$suffix"
 				else
 					insn="${insn// [/ $BROWN[}"
+					insn="${insn//:[/ $BROWN[}"
 					insn="${insn//]/$BROWN]}"
 				fi
 
