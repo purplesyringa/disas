@@ -92,6 +92,11 @@ objdump \
 			need_newline_before_symbol=1
 
 			for line in "${lines[@]}"; do
+				if [[ "$line" == "..." ]]; then
+					echo "$GRAY       │                                ..."
+					continue
+				fi
+
 				[[ "$line" =~ ^([0-9a-f]+):[[:space:]]+([0-9a-f]{2}(\ [0-9a-f]{2})*)([[:space:]]*.*)$ ]]
 				address="${BASH_REMATCH[1]}"
 				asm_code="${BASH_REMATCH[2]}"
