@@ -165,22 +165,6 @@ objdump \
 			need_newline_before_symbol=0
 		fi
 	done
-	# | -- "Move address of instruction to the ruler" \
-	# | sed -E "s/^\s+([ 0-9a-f]{6}):\s*(.{22})/$GRAY\1 │$OFF     $BROWN\2$OFF/g" \
-	# | sed -E "s/^\s+[ 0-9a-f]{6}:\s*(.*)/$GRAY       │$OFF     $BROWN\1$OFF/g" \
-	# | -- "Use section name as a block separator" \
-	# | sed -E "s/^Disassembly of section (.*):$/$GRAY───────┼$BAR\n$GRAY       │$OFF Section $RED\1\n$GRAY───────┼$BAR/g" \
-	# | -- "Highlight symbol names" \
-	# | sed -E "s/^[0-9a-f]{16} <(.*)>:$/$GRAY       │ $LIGHTGREEN\1$OFF/g" \
-	# | -- "Highlight comments" \
-	# | sed -E "s/#/$GRAY#/g" \
-	# | -- "Make the listing more consistent with nasm" \
-	# | sed -E "s/QWORD PTR /${ORANGE}qword$OFF /g" \
-	# | sed -E "s/DWORD PTR /${ORANGE}dword$OFF /g" \
-	# | sed -E "s/WORD PTR /${ORANGE}word$OFF /g" \
-	# | sed -E "s/BYTE PTR /${ORANGE}byte$OFF /g" \
-	# | -- "Handle empty lines" \
-	# | sed "/^$/d"
 
 	echo "$GRAY───────┴$BAR"
 } \
