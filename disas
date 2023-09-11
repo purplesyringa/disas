@@ -150,6 +150,10 @@ objdump \
 				insn="${insn//TBYTE PTR /${ORANGE}tbyte$OFF }"
 				insn="${insn//BYTE PTR /${ORANGE}byte$OFF }"
 
+				if [[ -z "$insn" ]]; then
+					address=""
+				fi
+
 				# This has to be present even if we want to use the same color for (bad) as we use
 				# for other instructions, because for some reason objdump spuriously fails to color
 				# (bad)
