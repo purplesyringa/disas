@@ -140,7 +140,9 @@ objdump \
 				insn="${insn//MMWORD PTR /${ORANGE}mmword$OFF }"
 				insn="${insn//QWORD PTR /${ORANGE}qword$OFF }"
 				insn="${insn//DWORD PTR /${ORANGE}dword$OFF }"
+				insn="${insn//FWORD PTR /${ORANGE}fword$OFF }"
 				insn="${insn//WORD PTR /${ORANGE}word$OFF }"
+				insn="${insn//TBYTE PTR /${ORANGE}tbyte$OFF }"
 				insn="${insn//BYTE PTR /${ORANGE}byte$OFF }"
 
 				printf "$GRAY%6s │ $BROWN%s%s%s\n" "$address" "$label" "$asm_code" "$insn"
