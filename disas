@@ -200,7 +200,8 @@ objdump \
 				else
 					# [ -> $BROWN[ doesn't work because [ might be part of the CSI
 					insn="${insn// [/ $BROWN[}"
-					insn="${insn//:[/ $BROWN[}"
+					insn="${insn//:[/:$BROWN[}"
+					insn="${insn//,[/,$BROWN[}"
 					insn="${insn//]/$BROWN]}"
 					insn="${insn//(/$BROWN(}"
 					insn="${insn//)/$BROWN)}"
