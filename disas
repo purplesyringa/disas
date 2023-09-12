@@ -199,12 +199,12 @@ objdump \
 					insn="$prefix$GREEN$target_symbol$BROWN($BLUE%rip$BROWN)$OFF$suffix"
 				else
 					# [ -> $BROWN[ doesn't work because [ might be part of the CSI
-					insn="${insn// [/ $BROWN[}"
-					insn="${insn//:[/:$BROWN[}"
-					insn="${insn//,[/,$BROWN[}"
-					insn="${insn//]/$BROWN]}"
-					insn="${insn//(/$BROWN(}"
-					insn="${insn//)/$BROWN)}"
+					insn="${insn// [/ $BROWN[$OFF}"
+					insn="${insn//:[/:$BROWN[$OFF}"
+					insn="${insn//,[/,$BROWN[$OFF}"
+					insn="${insn//]/$BROWN]$OFF}"
+					insn="${insn//(/$BROWN($OFF}"
+					insn="${insn//)/$BROWN)$OFF}"
 				fi
 
 				if [[ "$insn" =~ ^(.*[^@])(@[A-Za-z0-9_.@]+)(.*)$ ]]; then
