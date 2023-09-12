@@ -246,4 +246,4 @@ objdump \
 
 	echo "$GRAY───────┴$BAR"
 } \
-| less -R
+| less -R -F
