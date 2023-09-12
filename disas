@@ -83,7 +83,32 @@ elif [[ "$syntax" == "att" ]]; then
 fi
 
 
-BAR="$(yes | tr -d "\n" | head -c $(($(tput cols) - 8)) | sed s/y/─/g)"
+parse_vma=0
+max_address=0
+while read -r idx name size vma rest; do
+	if [[ "$vma" == "VMA" ]]; then
+		parse_vma=1
+	elif [[ $parse_vma -eq 1 ]]; then
+		end=$((0x$vma + 0x$size))
+		if [[ $end -gt $max_address ]]; then
+			max_address=$end
+		fi
+		parse_vma=2
+	elif [[ $parse_vma -eq 2 ]]; then
+		parse_vma=1
+	fi
+done < <(objdump --headers "$path")
+address_length="$(printf "%x" "$max_address" | wc -c)"
+
+if [[ $address_length -lt 5 ]]; then
+	address_length=5
+fi
+
+
+SPACES="$(printf " %${address_length}s " "")"
+LBAR="$(yes | tr -d "\n" | head -c $((address_length + 2)) | sed s/y/─/g)"
+RBAR="$(yes | tr -d "\n" | head -c $(($(tput cols) - address_length - 3)) | sed s/y/─/g)"
+
 
 objdump \
 	--disassemble \
@@ -95,15 +120,16 @@ objdump \
 	read -r line
 	read -r line
 	file_format="$(<<<"$line" sed "s/.*file format //")"
-	printf "$GRAY───────┬$BAR\n"
-	printf "$GRAY       │$OFF Disassembly: $BOLD%s$OFF $BROWN(%s)\n" "$path" "$file_format"
+
+	printf "$GRAY$LBAR┬$RBAR\n"
+	printf "$GRAY$SPACES│$OFF Disassembly: $BOLD%s$OFF $BROWN(%s)\n" "$path" "$file_format"
 
 	need_newline_before_symbol=0
 
 	while read -r line; do
 		if [[ "$line" =~ ^[0-9a-f]{4,}\ \<(.*)\>:$ ]]; then
 			if [[ $need_newline_before_symbol -eq 1 ]]; then
-				echo "$GRAY       │"
+				echo "$GRAY$SPACES│"
 			fi
 
 			symbol_name="${BASH_REMATCH[1]}"
@@ -114,7 +140,7 @@ objdump \
 			if [[ "$symbol_name" =~ ^(.*)([+-]"0x"[0-9a-f]+)$ ]]; then
 				symbol_name="${BASH_REMATCH[1]}$PURPLE${BASH_REMATCH[2]}"
 			fi
-			printf "$GRAY       │ $LIGHTGREEN%s$OFF\n" "$symbol_name"
+			printf "$GRAY$SPACES│ $LIGHTGREEN%s$OFF\n" "$symbol_name"
 
 			declare -A labels
 			lines=()
@@ -124,6 +150,8 @@ objdump \
 				line="${line//$ESC[33m/$ORANGE}"
 				line="${line//$ESC[34m/$BLUE}"
 				line="${line//$ESC[35m/$PURPLE}"
+
+				line="${line//$'\t'/   }"
 
 				lines+=("$line")
 				if [[ "$line" =~ ^([0-9a-f]+):.*[^0-9a-f]([0-9a-f]+)"$OFF <$GREEN$symbol_name$OFF$PURPLE+0x$OFF$PURPLE"[0-9a-f]+"$OFF>" ]]; then
@@ -139,7 +167,7 @@ objdump \
 
 			for line in "${lines[@]}"; do
 				if [[ "$line" == "..." ]]; then
-					echo "$GRAY       │                                ..."
+					echo "$GRAY$SPACES│                             $ORANGE..."
 					continue
 				fi
 
@@ -229,22 +257,22 @@ objdump \
 				# This has to be present even if we want to use the same color for (bad) as we use
 				# for other instructions, because for some reason objdump spuriously fails to color
 				# (bad)
-				insn="${insn//(bad)/$RED(bad)$OFF}"
+				insn="${insn//$BROWN(${OFF}bad$BROWN)$OFF/$RED(bad)$OFF}"
 
 				insn="${insn//,/, }"
 				insn="${insn//,  /, }"
 
-				printf "$GRAY%6s │ $BROWN%s%s%s\n" "$address" "$label" "$asm_code" "$insn"
+				printf "$GRAY %${address_length}s │ $BROWN%s%s%s\n" "$address" "$label" "$asm_code" "$insn"
 			done
 		elif [[ "$line" =~ ^"Disassembly of section "(.*):$ ]]; then
 			section="${BASH_REMATCH[1]}"
-			printf "$GRAY───────┼$BAR\n"
-			printf "$GRAY       │$OFF Section $RED%s\n" "$section"
-			printf "$GRAY───────┼$BAR"
+			printf "$GRAY$LBAR┼$RBAR\n"
+			printf "$GRAY$SPACES│$OFF Section $RED%s\n" "$section"
+			printf "$GRAY$LBAR┼$RBAR"
 			need_newline_before_symbol=0
 		fi
 	done
 
-	echo "$GRAY───────┴$BAR"
+	echo "$GRAY$LBAR┴$RBAR"
 } \
 | less -R -F
