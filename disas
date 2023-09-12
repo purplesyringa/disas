@@ -230,13 +230,13 @@ objdump \
 					segment_register="${BASH_REMATCH[2]}"
 					target_address="${BASH_REMATCH[4]}"
 					suffix="${BASH_REMATCH[5]}"
-					insn="$prefix$BROWN[$BLUE$segment_register$OFF:$PURPLE$target_address$BROWN]$OFF$suffix"
+					insn="$prefix$BROWN[$BLUE$segment_register$BROWN:$PURPLE$target_address$BROWN]$OFF$suffix"
 				elif [[ "$insn" =~ ^(.*)"$BLUE"([cdesfg]s)"$OFF:["([^\]]*)"]"(.*)$ ]]; then
 					prefix="${BASH_REMATCH[1]}"
 					segment_register="${BASH_REMATCH[2]}"
 					target_address="${BASH_REMATCH[3]}"
 					suffix="${BASH_REMATCH[4]}"
-					insn="$prefix$BROWN[$BLUE$segment_register$OFF:$target_address$BROWN]$OFF$suffix"
+					insn="$prefix$BROWN[$BLUE$segment_register$BROWN:$OFF$target_address$BROWN]$OFF$suffix"
 				else
 					# [ -> $BROWN[ doesn't work because [ might be part of the CSI
 					insn="${insn// [/ $BROWN[$OFF}"
@@ -271,8 +271,18 @@ objdump \
 				# (bad)
 				insn="${insn//$BROWN(${OFF}bad$BROWN)$OFF/$RED(bad)$OFF}"
 
-				insn="${insn//,/, }"
-				insn="${insn//,  /, }"
+				# Highlight punctuation
+				insn="${insn//,$BLUE/$BROWN, $BLUE}"
+				insn="${insn//,$BROWN/$BROWN, $BROWN}"
+				insn="${insn//,$ORANGE/$BROWN, $ORANGE}"
+				insn="${insn//,$PURPLE/$BROWN, $PURPLE}"
+				insn="${insn//,$GREEN/$BROWN, $GREEN}"
+				insn="${insn//$OFF\+$BLUE/$BROWN+$BLUE}"
+				insn="${insn//$OFF\+$PURPLE/$BROWN+$PURPLE}"
+				insn="${insn//$OFF\*$PURPLE/$BROWN*$PURPLE}"
+				insn="${insn//\*$BLUE/$BROWN*$BLUE}"
+				insn="${insn//\*$PURPLE/$BROWN*$PURPLE}"
+				insn="${insn//\*$GREEN/$BROWN*$GREEN}"
 
 				printf "$GRAY %${address_length}s │ $BROWN%s%s%s\n" "$address" "$label" "$asm_code" "$insn"
 			done
