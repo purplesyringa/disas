@@ -101,7 +101,7 @@ objdump \
 	need_newline_before_symbol=0
 
 	while read -r line; do
-		if [[ "$line" =~ ^[0-9a-f]{16}\ \<(.*)\>:$ ]]; then
+		if [[ "$line" =~ ^[0-9a-f]{4,}\ \<(.*)\>:$ ]]; then
 			if [[ $need_newline_before_symbol -eq 1 ]]; then
 				echo "$GRAY       │"
 			fi
