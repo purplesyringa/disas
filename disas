@@ -13,20 +13,74 @@ BOLD="$ESC[1m"
 OFF="$ESC[0m"
 
 
-path="$1"
-if [[ ! -e "$path" ]]; then
-	path="$(which "$1")"
-	if [[ -z "$path" ]]; then
-		line="$(ldconfig -p | grep -P "^\t$1(\.\d+)* \(" | head -1)"
-		if [[ "$line" =~ ^.*" => "(.*)$ ]]; then
-			path="${BASH_REMATCH[1]}"
-		else
-			echo "disas: $1: not found"
+syntax=intel
+path=
+noopt=0
+
+for arg in "$@"; do
+	handle_path=0
+	if [[ $noopt -eq 0 ]]; then
+		case "$arg" in
+		--intel)
+			syntax=intel
+			;;
+		--att)
+			syntax=att
+			;;
+		--)
+			noopt=1
+			;;
+		-*)
+			echo "Unknown option $arg" >&2
+			exit 1
+			;;
+		*)
+			handle_path=1
+		esac
+	else
+		handle_path=1
+	fi
+
+	if [[ $handle_path -eq 1 ]]; then
+		if [[ -n "$path" ]]; then
+			echo "Multiple files cannot be disassembled simultaneously" >&2
 			exit 1
 		fi
+
+		path="$arg"
+		if [[ ! -e "$path" ]]; then
+			path="$(which "$arg")"
+			if [[ -z "$path" ]]; then
+				line="$(ldconfig -p | grep -P "^\t$arg(\.\d+)* \(" | head -1)"
+				if [[ "$line" =~ ^.*" => "(.*)$ ]]; then
+					path="${BASH_REMATCH[1]}"
+				else
+					echo "disas: $arg: not found"
+					exit 1
+				fi
+			fi
+		fi
 	fi
+done
+
+if [[ -z "$path" ]]; then
+	echo "Usage:"
+	echo "disas <options...> <file>"
+	echo
+	echo "Supported options:"
+	echo "--intel             Use Intel syntax (default)"
+	echo "--att               Use AT&T syntax"
+	exit 1
 fi
-shift
+
+
+objdump_opts=()
+
+if [[ "$syntax" == "intel" ]]; then
+	objdump_opts+=(-Mintel)
+elif [[ "$syntax" == "att" ]]; then
+	objdump_opts+=(-Matt)
+fi
 
 
 BAR="$(yes | tr -d "\n" | head -c $(($(tput cols) - 8)) | sed s/y/─/g)"
@@ -35,9 +89,8 @@ objdump \
 	--disassemble \
 	--disassembler-color=color \
 	--demangle \
-	-Mintel \
+	"${objdump_opts[@]}" \
 	"$path" \
-	"$@" \
 | {
 	read -r line
 	read -r line
@@ -73,9 +126,10 @@ objdump \
 				line="${line//$ESC[35m/$PURPLE}"
 
 				lines+=("$line")
-				if [[ "$line" =~ ([0-9a-f]+)"$OFF <$GREEN$symbol_name$OFF$PURPLE+0x$OFF$PURPLE"[0-9a-f]+"$OFF>" ]]; then
-					target_address="${BASH_REMATCH[1]}"
-					if [[ ! -v "labels[$target_address]" ]]; then
+				if [[ "$line" =~ ^([0-9a-f]+):.*[^0-9a-f]([0-9a-f]+)"$OFF <$GREEN$symbol_name$OFF$PURPLE+0x$OFF$PURPLE"[0-9a-f]+"$OFF>" ]]; then
+					source_address="${BASH_REMATCH[1]}"
+					target_address="${BASH_REMATCH[2]}"
+					if [[ "$source_address" != "$target_address" && ! -v "labels[$target_address]" ]]; then
 						labels["$target_address"]="$counter"
 						counter="$((counter+1))"
 					fi
@@ -107,6 +161,19 @@ objdump \
 					target_address="${BASH_REMATCH[2]}"
 					suffix="${BASH_REMATCH[3]}"
 					target_label="${labels[$target_address]}"
+					if [[ "$syntax" == intel ]]; then
+						if [[ "$address" == "$target_address" ]]; then
+							target_label="$"
+						fi
+					elif [[ "$syntax" == att ]]; then
+						if [[ "$address" == "$target_address" ]]; then
+							target_label="."
+						elif [[ $((0x$target_address)) -gt $((0x$address)) ]]; then
+							target_label="${target_label}f"
+						else
+							target_label="${target_label}b"
+						fi
+					fi
 					insn="$prefix$RED$target_label$OFF$suffix"
 				elif [[ "$insn" =~ ^(.*)"$PURPLE"[0-9a-f]+"$OFF <$GREEN"(.*)"$OFF>"(.*)$ ]]; then
 					prefix="${BASH_REMATCH[1]}"
@@ -114,6 +181,7 @@ objdump \
 					suffix="${BASH_REMATCH[3]}"
 					insn="$prefix$GREEN$target_symbol$OFF$suffix"
 				elif [[ "$insn" =~ ^(.*)"[${BLUE}rip$OFF".*"]"(.*)"# "[^\<]**"<"(.*)">"$ ]]; then
+					# Intel style
 					prefix="${BASH_REMATCH[1]}"
 					suffix="${BASH_REMATCH[2]}"
 					target_symbol="${BASH_REMATCH[3]}"
@@ -121,10 +189,21 @@ objdump \
 						target_symbol="${BASH_REMATCH[1]}$PURPLE${BASH_REMATCH[2]}"
 					fi
 					insn="$prefix$BROWN[${ORANGE}rel$OFF $GREEN$target_symbol$BROWN]$suffix"
+				elif [[ "$insn" =~ ^(.*)"${PURPLE}0x"[0-9a-f]+"$OFF($BLUE%rip$OFF)"(.*)"# "[^\<]**"<"(.*)">"$ ]]; then
+					prefix="${BASH_REMATCH[1]}"
+					suffix="${BASH_REMATCH[2]}"
+					target_symbol="${BASH_REMATCH[3]}"
+					if [[ "$target_symbol" =~ ^(.*)([+-]"0x"[0-9a-f]+)$ ]]; then
+						target_symbol="${BASH_REMATCH[1]}$PURPLE${BASH_REMATCH[2]}"
+					fi
+					insn="$prefix$GREEN$target_symbol$BROWN($BLUE%rip$BROWN)$OFF$suffix"
 				else
+					# [ -> $BROWN[ doesn't work because [ might be part of the CSI
 					insn="${insn// [/ $BROWN[}"
 					insn="${insn//:[/ $BROWN[}"
 					insn="${insn//]/$BROWN]}"
+					insn="${insn//(/$BROWN(}"
+					insn="${insn//)/$BROWN)}"
 				fi
 
 				if [[ "$insn" =~ ^(.*[^@])(@[A-Za-z0-9_.@]+)(.*)$ ]]; then
