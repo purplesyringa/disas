@@ -284,6 +284,13 @@ objdump \
 				insn="${insn//\*$PURPLE/$BROWN*$PURPLE}"
 				insn="${insn//\*$GREEN/$BROWN*$GREEN}"
 
+				# Remove *1 in dereferences
+				if [[ "$syntax" == intel ]]; then
+					insn="${insn//$BROWN\*${PURPLE}1}"
+				elif [[ "$syntax" == att ]]; then
+					insn="${insn//$BROWN, ${PURPLE}1}"
+				fi
+
 				printf "$GRAY %${address_length}s │ $BROWN%s%s%s\n" "$address" "$label" "$asm_code" "$insn"
 			done
 		elif [[ "$line" =~ ^"Disassembly of section "(.*):$ ]]; then
