@@ -284,13 +284,15 @@ objdump \
 				insn="${insn//\*$PURPLE/$BROWN*$PURPLE}"
 				insn="${insn//\*$GREEN/$BROWN*$GREEN}"
 
-				# Remove +eiz and *1 in dereferences
+				# Remove superficial +eiz, *1, and +0x0 in dereferences
 				if [[ "$syntax" == intel ]]; then
 					insn="${insn//$BROWN\+${BLUE}eiz}"
 					insn="${insn//$BROWN\*${PURPLE}1}"
+					insn="${insn//$BROWN\+${PURPLE}0x0}"
 				elif [[ "$syntax" == att ]]; then
 					insn="${insn//$BROWN, ${BLUE}%eiz}"
 					insn="${insn//$BROWN, ${PURPLE}1}"
+					insn="${insn//${PURPLE}0x0$OFF$BROWN(/$BROWN(}"
 				fi
 
 				printf "$GRAY %${address_length}s │ $BROWN%s%s%s\n" "$address" "$label" "$asm_code" "$insn"
