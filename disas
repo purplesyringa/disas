@@ -79,7 +79,7 @@ objdump_opts=()
 if [[ "$syntax" == "intel" ]]; then
 	objdump_opts+=(-Mintel)
 elif [[ "$syntax" == "att" ]]; then
-	objdump_opts+=(-Matt)
+	objdump_opts+=(-Matt -Msuffix)
 fi
 
 
