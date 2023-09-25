@@ -295,6 +295,9 @@ objdump \
 					insn="${insn//${PURPLE}0x0$OFF$BROWN(/$BROWN(}"
 				fi
 
+				# Fix uncolored ,1 in rotate instructions
+				insn="${insn%,1}"
+
 				printf "$GRAY %${address_length}s │ $BROWN%s%s%s\n" "$address" "$label" "$asm_code" "$insn"
 			done
 		elif [[ "$line" =~ ^"Disassembly of section "(.*):$ ]]; then
